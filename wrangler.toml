@@ -16,6 +16,9 @@ database_id = "a2447b3e-c351-4f0d-bf70-d4e0750c0272"
 migrations_dir = "migrations"
 
 # Dọn session/bộ đếm hết hạn và log cũ mỗi ngày lúc 03:17 giờ Việt Nam (20:17 UTC)
+[observability]
+enabled = true
+
 [triggers]
 crons = ["17 20 * * *"]
 

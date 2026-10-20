@@ -57,3 +57,6 @@ tr.row { cursor: pointer; } tr.row:hover { background: var(--bg); }
   .card { padding: 16px; } .kv { grid-template-columns: 1fr; }
   th.hide-m, td.hide-m { display: none; }
 }
+
+.hints { margin: 4px 0 16px; padding-left: 20px; font-weight: 600; }
+#google-btn { margin-top: 8px; }

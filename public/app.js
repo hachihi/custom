@@ -1,7 +1,7 @@
 'use strict';
 (() => {
   const $ = s => document.querySelector(s);
-  const views = { login: $('#view-login'), app: $('#view-app') };
+  const views = { search: $('#view-search'), found: $('#view-found'), app: $('#view-app') };
   let config = { googleClientId: null, tickets: true };
   let currentTab = 'orders';
 
@@ -46,7 +46,7 @@
     });
     let data = {};
     try { data = await res.json(); } catch { /* không có body */ }
-    if (res.status === 401 && !path.startsWith('/api/auth')) { showLogin('Phiên đã hết hạn, vui lòng đăng nhập lại.'); }
+    if (res.status === 401 && !path.startsWith('/api/auth')) { showSearch('Phiên đã hết hạn, vui lòng tìm kiếm và đăng nhập lại.'); }
     if (!res.ok) throw new Error(data.error || 'Có lỗi xảy ra, vui lòng thử lại.');
     return data;
   }
@@ -57,22 +57,56 @@
   }
   function setMsg(id, text, kind) { const el = $(id); el.textContent = text || ''; el.className = 'msg ' + (kind || ''); }
 
-  /* ---------- đăng nhập Google ---------- */
-  function showLogin(msg) {
-    show('login'); setMsg('#msg-login', msg || '', msg ? 'err' : '');
+  /* ---------- bước 1: tìm kiếm (chưa cần đăng nhập) ---------- */
+  function showSearch(msg) {
+    show('search'); setMsg('#msg-search', msg || '', msg ? 'err' : '');
+    $('#identifier').focus();
   }
+
+  $('#form-search').addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button.primary');
+    btn.disabled = true; setMsg('#msg-search', '');
+    try {
+      const r = await api('/api/search', { identifier: $('#identifier').value });
+      if (r.found) showFound(r.hints || []);
+      else setMsg('#msg-search', 'Không tìm thấy đơn hàng hoặc ticket với thông tin này. Vui lòng kiểm tra lại số điện thoại hoặc email.', 'err');
+    } catch (err) { setMsg('#msg-search', err.message, 'err'); }
+    finally { btn.disabled = false; }
+  });
+
+  /* ---------- bước 2: đã tìm thấy → đăng nhập Google ---------- */
+  function showFound(hints) {
+    show('found'); setMsg('#msg-login', '');
+    $('#found-hints').replaceChildren(...hints.map(x => h('li', {}, x)));
+    $('#found-hints-wrap').hidden = hints.length === 0;
+    $('#found-nomail').hidden = hints.length > 0;
+    $('#google-btn').hidden = hints.length === 0;
+    renderGoogle();
+  }
+
+  $('#btn-back').addEventListener('click', () => showSearch());
 
   $('#btn-logout').addEventListener('click', async () => {
     try { await api('/api/logout', {}); } catch { /* bỏ qua */ }
-    showLogin();
+    $('#identifier').value = '';
+    showSearch();
     if (window.google) google.accounts.id.disableAutoSelect();
   });
 
-  function initGoogle() {
+  let googleReady = false;
+  function renderGoogle() {
+    const el = $('#google-btn'); el.replaceChildren();
     if (!config.googleClientId) {
       setMsg('#msg-login', 'Hệ thống chưa cấu hình đăng nhập Google. Vui lòng liên hệ quản trị viên.', 'err');
       return;
     }
+    if (!googleReady) return; // sẽ vẽ lại khi script Google tải xong
+    google.accounts.id.renderButton(el, { theme: 'outline', size: 'large', text: 'signin_with', locale: 'vi' });
+  }
+
+  function initGoogle() {
+    if (!config.googleClientId) return;
     const s = document.createElement('script');
     s.src = 'https://accounts.google.com/gsi/client'; s.async = true;
     s.onerror = () => setMsg('#msg-login', 'Không tải được đăng nhập Google, vui lòng thử lại.', 'err');
@@ -84,7 +118,8 @@
           catch (err) { setMsg('#msg-login', err.message, 'err'); }
         },
       });
-      google.accounts.id.renderButton($('#google-btn'), { theme: 'outline', size: 'large', text: 'signin_with', locale: 'vi' });
+      googleReady = true;
+      if (!views.found.hidden) renderGoogle();
     };
     document.head.append(s);
   }
@@ -189,11 +224,12 @@
   /* ---------- khởi động: kiểm tra phiên đã lưu ---------- */
   (async () => {
     try { config = await api('/api/config'); } catch { /* dùng mặc định */ }
+    initGoogle();
     try {
       const sess = await api('/api/session');
-      if (sess.authenticated) { enterApp(sess); initGoogle(); return; } // còn phiên → vào thẳng
+      if (sess.authenticated) return enterApp(sess);          // còn phiên → vào thẳng
+      if (sess.pending) return showFound(sess.pending.hints);  // đã tìm thấy, đang chờ đăng nhập
     } catch { /* chưa có phiên */ }
-    showLogin();
-    initGoogle();
+    showSearch();
   })();
 })();

@@ -18,12 +18,30 @@
   </header>
 
   <main class="wrap">
-    <!-- Đăng nhập -->
-    <section id="view-login" class="card narrow" hidden>
-      <h1>Xem đơn hàng và ticket của bạn</h1>
-      <p class="muted">Đăng nhập bằng tài khoản Google có <strong>đúng email bạn đã dùng khi mua hàng</strong>.</p>
+    <!-- Bước 1: tìm kiếm (chưa cần đăng nhập) -->
+    <section id="view-search" class="card narrow" hidden>
+      <h1>Tra cứu đơn hàng và ticket</h1>
+      <p class="muted">Nhập số điện thoại hoặc email bạn đã dùng khi đặt hàng.</p>
+      <form id="form-search">
+        <label for="identifier">Số điện thoại hoặc email</label>
+        <input id="identifier" type="text" autocomplete="off" required placeholder="vd: 0901234567 hoặc ten@email.com">
+        <button class="primary" type="submit">Tìm kiếm</button>
+      </form>
+      <p id="msg-search" class="msg" role="status"></p>
+    </section>
+
+    <!-- Bước 2: đã tìm thấy → đăng nhập Google để xem -->
+    <section id="view-found" class="card narrow" hidden>
+      <h1>Đã tìm thấy thông tin của bạn</h1>
+      <p class="muted">Để bảo mật, vui lòng đăng nhập bằng tài khoản Google có <strong>đúng email đã dùng khi mua hàng</strong> để xem chi tiết.</p>
+      <div id="found-hints-wrap" hidden>
+        <p class="small muted">Email gợi ý:</p>
+        <ul id="found-hints" class="hints"></ul>
+      </div>
+      <p id="found-nomail" class="msg err" hidden>Thông tin này chưa gắn với email nên chưa thể xác thực tự động. Vui lòng liên hệ cửa hàng để được hỗ trợ.</p>
       <div id="google-btn"></div>
       <p id="msg-login" class="msg" role="status"></p>
+      <button type="button" id="btn-back" class="link">← Tìm bằng thông tin khác</button>
     </section>
 
     <!-- Dashboard -->

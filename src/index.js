@@ -2,12 +2,13 @@ import { Hono } from 'hono';
 import { secureHeaders } from 'hono/secure-headers';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
-import { createOdoo, normalizeEmail } from './odoo.js';
+import { createOdoo, normalizeEmail, normalizeIdentifier } from './odoo.js';
 import { sha256Hex, randomId } from './crypto.js';
 import * as db from './db.js';
 
 const COOKIE = 'portal.sid';
 const SID_RE = /^[A-Za-z0-9_-]{43}$/;
+const PENDING_TTL_MS = 30 * 60e3; // kết quả tìm kiếm chờ đăng nhập giữ 30 phút
 const TOO_MANY = 'Bạn thao tác quá nhiều lần, vui lòng thử lại sau.';
 
 // GOOGLE_JWKS_URL chỉ dùng khi chạy test; mặc định là khóa công khai của Google
@@ -30,6 +31,15 @@ const readJson = c => c.req.json().catch(() => ({}));
 function maskEmail(e) {
   const [u, d] = String(e).split('@');
   return `${u.slice(0, 2)}${'*'.repeat(Math.max(1, u.length - 2))}@${d}`;
+}
+
+/** Gợi ý email đã che gần hết: ng***@gm***.com */
+function hintEmail(e) {
+  const [u, d = ''] = String(e).split('@');
+  const dot = d.lastIndexOf('.');
+  const host = dot > 0 ? d.slice(0, dot) : d;
+  const tld = dot > 0 ? d.slice(dot) : '';
+  return `${u.slice(0, 2)}***@${host.slice(0, 2)}***${tld}`;
 }
 
 /* ---------------- nhật ký (ghi nền, không làm chậm phản hồi) ---------------- */
@@ -110,8 +120,49 @@ app.get('/api/config', c => {
 // Còn phiên → khách vào thẳng, không phải đăng nhập lại
 app.get('/api/session', c => {
   const a = c.get('S').data.auth;
-  if (!a || Date.now() - a.verifiedAt > settings(c.env).authTtlMs) return c.json({ authenticated: false });
+  if (!a || Date.now() - a.verifiedAt > settings(c.env).authTtlMs) {
+    const p = c.get('S').data.pending;
+    if (p && Date.now() < p.exp) return c.json({ authenticated: false, pending: { hints: p.emails.map(hintEmail) } });
+    return c.json({ authenticated: false });
+  }
   return c.json({ authenticated: true, name: a.name, email: maskEmail(a.email), expiresAt: a.verifiedAt + settings(c.env).authTtlMs });
+});
+
+// Tìm kiếm công khai (chưa cần đăng nhập): chỉ cho biết CÓ hay KHÔNG, không trả dữ liệu đơn hàng.
+// Kết quả được giữ trong session; muốn xem tiếp phải đăng nhập Google đúng email trên đơn.
+app.post('/api/search', async c => {
+  const DB = c.env.DB;
+  if (!(await db.hit(DB, 'ip:search:' + clientIp(c), 20, 900))) return c.json({ error: TOO_MANY }, 429);
+
+  const identifier = String((await readJson(c)).identifier || '').trim().slice(0, 100);
+  if (identifier.length < 5) return c.json({ error: 'Vui lòng nhập email hoặc số điện thoại hợp lệ.' }, 400);
+
+  const idh = (await sha256Hex(normalizeIdentifier(identifier))).slice(0, 32);
+  if (!(await db.hit(DB, 'id:search:' + idh, 30, 3600))) {
+    log(c, 'search_throttled', { idh });
+    return c.json({ error: TOO_MANY }, 429);
+  }
+
+  const S = c.get('S');
+  delete S.data.pending;
+  const { partners } = await createOdoo(c.env).findPartners(identifier);
+
+  if (!partners.length) {
+    if (S.id) await saveSession(c);
+    log(c, 'search', { idh, detail: { found: false } });
+    return c.json({ found: false });
+  }
+
+  const emails = [...new Set(partners.map(p => normalizeEmail(p.email)).filter(Boolean))];
+  S.data.pending = {
+    exp: Date.now() + PENDING_TTL_MS,
+    idh,
+    emails,
+    partners: partners.map(p => ({ id: p.id, name: p.name, email: normalizeEmail(p.email), commercial_partner_id: p.commercial_partner_id })),
+  };
+  await saveSession(c);
+  log(c, 'search', { idh, detail: { found: true, emails: emails.length } });
+  return c.json({ found: true, hints: emails.map(hintEmail) });
 });
 
 // Đăng nhập Google: chỉ chấp nhận khi email đã xác minh và trùng email của khách trong Odoo
@@ -138,16 +189,28 @@ app.post('/api/auth/google', async c => {
   const email = normalizeEmail(payload.email);
   const idh = (await sha256Hex(email)).slice(0, 32);
   const odoo = createOdoo(c.env);
-  const { partners } = await odoo.findPartners(email);
-  if (!partners.length) {
-    log(c, 'google_no_match', { idh });
-    return c.json({ error: 'Email này chưa có đơn hàng hoặc ticket trong hệ thống.' }, 404);
+  const S = c.get('S');
+  const pending = S.data.pending && Date.now() < S.data.pending.exp ? S.data.pending : null;
+
+  let partners;
+  if (pending) {
+    // Đã tìm kiếm trước đó: chỉ chấp nhận tài khoản Google có đúng email trên đơn hàng đã tìm thấy
+    partners = pending.partners.filter(p => p.email && p.email === email);
+    if (!partners.length) {
+      log(c, 'google_mismatch', { idh, detail: { searchIdh: pending.idh } });
+      return c.json({ error: 'Tài khoản Google này không trùng với email trên đơn hàng. Vui lòng đăng nhập đúng tài khoản đã dùng khi mua hàng.' }, 403);
+    }
+  } else {
+    ({ partners } = await odoo.findPartners(email));
+    if (!partners.length) {
+      log(c, 'google_no_match', { idh });
+      return c.json({ error: 'Email này chưa có đơn hàng hoặc ticket trong hệ thống.' }, 404);
+    }
   }
 
   const ids = odoo.scopeIds(partners);
   const name = (partners.find(p => p.name) || {}).name || payload.name || '';
-  await rotateSession(c);
-  const S = c.get('S');
+  await rotateSession(c); // xóa luôn kết quả tìm kiếm đang chờ
   S.data.auth = { ids, email, name, method: 'google', verifiedAt: Date.now() };
   await saveSession(c);
   log(c, 'login_google', { idh, partners: ids });
@@ -190,6 +253,16 @@ app.all('/api/*', c => c.json({ error: 'Not found' }, 404));
 
 app.onError((err, c) => {
   console.error(err);
+  // Ghi nguyên nhân lỗi vào audit_log để quản trị xem được trong D1 (không trả chi tiết cho khách)
+  try {
+    c.executionCtx.waitUntil(
+      db.audit(c.env.DB, {
+        event: 'server_error',
+        ip: clientIp(c),
+        detail: { path: new URL(c.req.url).pathname, error: String((err && err.message) || err).slice(0, 300) },
+      }).catch(() => {}),
+    );
+  } catch (_) { /* bỏ qua */ }
   return c.json({ error: 'Có lỗi xảy ra, vui lòng thử lại sau.' }, 500);
 });
 

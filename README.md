@@ -1,6 +1,12 @@
 # Cổng tra cứu đơn hàng / ticket — Odoo 14 + Cloudflare Workers + D1
 
-Khách **đăng nhập Google**. Worker xác minh token, lấy email đã được Google xác minh rồi tìm khách có **đúng email đó** trong Odoo. Khớp thì cho xem đơn hàng, phiếu giao và ticket của chính khách. Đăng nhập được **ghi nhớ trong session** (mặc định 72 giờ), lần sau khách vào thẳng.
+Luồng của khách:
+
+1. **Tìm kiếm (chưa cần đăng nhập):** nhập số điện thoại hoặc email. Hệ thống chỉ báo **có / không tìm thấy** và gợi ý email đã che (`ng***@gm***.com`), **không hiện dữ liệu đơn hàng**.
+2. **Đăng nhập Google:** khách phải đăng nhập bằng tài khoản Google có **đúng email gắn với đơn hàng vừa tìm thấy**. Sai tài khoản thì bị từ chối và vẫn không xem được gì.
+3. **Xem đơn hàng, phiếu giao, ticket** của chính khách đó. Đăng nhập được **ghi nhớ trong session** (mặc định 72 giờ), lần sau khách vào thẳng, không phải tìm lại.
+
+Nếu khách trong Odoo **chưa có email**, hệ thống báo tìm thấy nhưng không thể xác thực tự động, yêu cầu liên hệ cửa hàng.
 
 D1 lưu: session, bộ đếm chống spam và **nhật ký truy cập** (`audit_log`).
 
@@ -57,7 +63,7 @@ npm run deploy
 
 Mỗi dòng gồm thời gian, sự kiện, IP, mã rút gọn của session, **bản băm** của email (không lưu email gốc), id partner Odoo và chi tiết.
 
-Sự kiện: `login_google`, `google_no_match` (Google đúng nhưng email không có trong Odoo), `google_unverified`, `google_invalid` (token sai/hết hạn/sai client), `logout`, `view_order`, `view_ticket` (hai sự kiện cuối tắt bằng `LOG_VIEWS = "0"`).
+Sự kiện: `search` (kèm `found` true/false), `search_throttled`, `login_google`, `google_mismatch` (tìm thấy đơn nhưng đăng nhập sai tài khoản), `google_no_match` (đăng nhập thẳng nhưng email không có trong Odoo), `google_unverified`, `server_error` (lỗi hệ thống, kèm nguyên nhân), `google_invalid` (token sai/hết hạn/sai client), `logout`, `view_order`, `view_ticket` (hai sự kiện cuối tắt bằng `LOG_VIEWS = "0"`).
 
 ```bash
 # 20 sự kiện gần nhất
@@ -78,7 +84,9 @@ Cron chạy mỗi ngày lúc 03:17 (giờ VN) xoá log quá `LOG_RETENTION_DAYS`
 ## Bảo mật đã có
 
 - Token Google được kiểm tra chữ ký bằng khóa công khai của Google, đúng `iss`, đúng `aud` (client ID của bạn), còn hạn, và `email_verified = true`.
-- Chỉ khách có email trùng trong Odoo mới vào được; sai thì trả thông báo chung, không lộ dữ liệu.
+- Tìm kiếm công khai chỉ trả "có/không" và gợi ý email đã che; mọi API dữ liệu (`/api/orders`, `/api/tickets`) vẫn yêu cầu đăng nhập Google đúng email trên đơn.
+- Giới hạn tìm kiếm: 20 lần/15 phút cho mỗi IP và 30 lần/giờ cho mỗi số điện thoại/email.
+- Đánh đổi cần biết: vì tìm kiếm công khai, người ngoài có thể dò xem một số điện thoại/email có phải khách của công ty hay không. Giới hạn tần suất làm việc dò hàng loạt khó hơn nhưng không ngăn hoàn toàn.
 - Cookie session chỉ chứa ID ngẫu nhiên 256 bit (`HttpOnly`, `Secure`, `SameSite=Lax`); D1 chỉ lưu bản băm của ID. Đổi ID sau khi đăng nhập.
 - Mọi truy vấn lọc theo `partner_id child_of <partner trong session>`, nên không xem được đơn của người khác dù đoán ID.
 - Ticket chỉ lấy tin nhắn công khai. Giao diện chỉ dùng `textContent`. POST yêu cầu JSON và kiểm tra Origin. Giới hạn 30 lần đăng nhập/15 phút cho mỗi IP.
