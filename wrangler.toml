@@ -1,0 +1,41 @@
+name = "order-portal"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+# Giao diện tĩnh nằm trong public/. Chỉ /api/* chạy qua Worker, còn lại phục vụ thẳng file tĩnh.
+[assets]
+directory = "./public"
+run_worker_first = ["/api/*"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "portal-db"
+database_id = "THAY_BANG_ID_SAU_KHI_CHAY_wrangler_d1_create"
+migrations_dir = "migrations"
+
+# Dọn session/bộ đếm hết hạn và log cũ mỗi ngày lúc 03:17 giờ Việt Nam (20:17 UTC)
+[triggers]
+crons = ["17 20 * * *"]
+
+[vars]
+# ---- Đăng nhập Google (bắt buộc): OAuth Client ID loại "Web application" ----
+GOOGLE_CLIENT_ID = ""
+
+# ---- Odoo 14 (ODOO_API_KEY là secret: wrangler secret put ODOO_API_KEY) ----
+ODOO_URL = "https://odoo.your-company.com"
+ODOO_DB = "your_db"
+ODOO_USER = "portal-api@your-company.com"
+# self = chỉ thấy đơn của chính liên hệ ; commercial = thấy đơn của cả công ty
+ORDER_SCOPE = "self"
+# Model ticket (Odoo Enterprise Helpdesk). Để chuỗi rỗng "" nếu không dùng ticket
+TICKET_MODEL = "helpdesk.ticket"
+
+# ---- Phiên ghi nhớ đăng nhập ----
+SESSION_TTL_HOURS = "72"
+
+# ---- Nhật ký (D1) ----
+LOG_RETENTION_DAYS = "90"
+# "1" = ghi cả lượt xem chi tiết đơn/ticket ; "0" = chỉ ghi sự kiện đăng nhập
+LOG_VIEWS = "1"
+
+# Secrets cần đặt:  wrangler secret put ODOO_API_KEY

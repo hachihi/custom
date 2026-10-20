@@ -1,0 +1,20 @@
+{
+  "name": "order-portal",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Cổng tra cứu đơn hàng / ticket cho khách hàng (Odoo 14) - Cloudflare Workers + D1",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate:local": "wrangler d1 migrations apply portal-db --local",
+    "db:migrate": "wrangler d1 migrations apply portal-db --remote"
+  },
+  "dependencies": {
+    "hono": "^4.6.0",
+    "jose": "^5.9.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

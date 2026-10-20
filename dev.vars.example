@@ -1,0 +1,7 @@
+# Copy file này thành .dev.vars khi chạy local (wrangler dev). KHÔNG commit .dev.vars.
+ODOO_URL=https://odoo.your-company.com
+ODOO_DB=your_db
+ODOO_USER=portal-api@your-company.com
+ODOO_API_KEY=xxxxxxxxxxxxxxxx
+# Ghi đè GOOGLE_CLIENT_ID trong wrangler.toml nếu muốn dùng client riêng khi dev
+# GOOGLE_CLIENT_ID=xxxxxxxx.apps.googleusercontent.com
