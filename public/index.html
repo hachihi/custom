@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tra cứu đơn hàng</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap bar">
+      <strong>Tra cứu đơn hàng &amp; hỗ trợ</strong>
+      <div id="userbox" class="userbox" hidden>
+        <span id="whoami"></span>
+        <button id="btn-logout" class="link">Đăng xuất</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- Đăng nhập -->
+    <section id="view-login" class="card narrow" hidden>
+      <h1>Xem đơn hàng và ticket của bạn</h1>
+      <p class="muted">Đăng nhập bằng tài khoản Google có <strong>đúng email bạn đã dùng khi mua hàng</strong>.</p>
+      <div id="google-btn"></div>
+      <p id="msg-login" class="msg" role="status"></p>
+    </section>
+
+    <!-- Dashboard -->
+    <section id="view-app" hidden>
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="orders" role="tab">Đơn hàng</button>
+        <button class="tab" data-tab="tickets" role="tab" id="tab-tickets">Ticket hỗ trợ</button>
+      </div>
+      <div id="list" class="card"></div>
+      <div id="detail" class="card" hidden></div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,6 +1,8 @@
-name = "order-portal"
+name = "custom"
 main = "src/index.js"
 compatibility_date = "2026-09-01"
+# Giữ lại biến/secret đặt trên dashboard (vd ODOO_API_KEY) khi deploy
+keep_vars = true
 
 # Giao diện tĩnh nằm trong public/. Chỉ /api/* chạy qua Worker, còn lại phục vụ thẳng file tĩnh.
 [assets]
@@ -21,7 +23,7 @@ crons = ["17 20 * * *"]
 # ---- Đăng nhập Google (bắt buộc): OAuth Client ID loại "Web application" ----
 GOOGLE_CLIENT_ID = "787895320662-mg0ruljppose4k728tfbqcsbbtujm40i.apps.googleusercontent.com"
 
-# ---- Odoo 14 (ODOO_API_KEY là secret: wrangler secret put ODOO_API_KEY) ----
+# ---- Odoo 14 (ODOO_API_KEY là secret: đặt trên dashboard hoặc wrangler secret put ODOO_API_KEY) ----
 ODOO_URL = "https://erp.hangchinhhieu.vn"
 ODOO_DB = "DB_HCH_PRO_V2_2023072023"
 ODOO_USER = "hai.hoang@hangchinhhieu.vn"
@@ -37,5 +39,3 @@ SESSION_TTL_HOURS = "72"
 LOG_RETENTION_DAYS = "90"
 # "1" = ghi cả lượt xem chi tiết đơn/ticket ; "0" = chỉ ghi sự kiện đăng nhập
 LOG_VIEWS = "1"
-
-# Secrets cần đặt:  wrangler secret put ODOO_API_KEY
