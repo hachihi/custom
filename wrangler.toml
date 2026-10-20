@@ -10,7 +10,7 @@ run_worker_first = ["/api/*"]
 [[d1_databases]]
 binding = "DB"
 database_name = "portal-db"
-database_id = "THAY_BANG_ID_SAU_KHI_CHAY_wrangler_d1_create"
+database_id = "a2447b3e-c351-4f0d-bf70-d4e0750c0272"
 migrations_dir = "migrations"
 
 # Dọn session/bộ đếm hết hạn và log cũ mỗi ngày lúc 03:17 giờ Việt Nam (20:17 UTC)
@@ -22,9 +22,9 @@ crons = ["17 20 * * *"]
 GOOGLE_CLIENT_ID = ""
 
 # ---- Odoo 14 (ODOO_API_KEY là secret: wrangler secret put ODOO_API_KEY) ----
-ODOO_URL = "https://odoo.your-company.com"
-ODOO_DB = "your_db"
-ODOO_USER = "portal-api@your-company.com"
+ODOO_URL = "https://erp.hangchinhhieu.vn"
+ODOO_DB = "DB_HCH_PRO_V2_2023072023"
+ODOO_USER = "hai.hoang@hangchinhhieu.vn"
 # self = chỉ thấy đơn của chính liên hệ ; commercial = thấy đơn của cả công ty
 ORDER_SCOPE = "self"
 # Model ticket (Odoo Enterprise Helpdesk). Để chuỗi rỗng "" nếu không dùng ticket
