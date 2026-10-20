@@ -19,7 +19,7 @@ crons = ["17 20 * * *"]
 
 [vars]
 # ---- Đăng nhập Google (bắt buộc): OAuth Client ID loại "Web application" ----
-GOOGLE_CLIENT_ID = ""
+GOOGLE_CLIENT_ID = "787895320662-mg0ruljppose4k728tfbqcsbbtujm40i.apps.googleusercontent.com"
 
 # ---- Odoo 14 (ODOO_API_KEY là secret: wrangler secret put ODOO_API_KEY) ----
 ODOO_URL = "https://erp.hangchinhhieu.vn"
